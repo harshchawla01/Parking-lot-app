@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.minidev.json.annotate.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Data
@@ -24,9 +24,9 @@ public class User {
     @JsonIgnore
     private String password;
 
-//    @Enumerated(EnumType.STRING)
-//    @Column(nullable=false)
-//    private Role role;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable=false)
+    private Role role;
 
     public int getId() {
         return id;
@@ -60,13 +60,11 @@ public class User {
         this.password = password;
     }
 
-//    public Role getRole() {
-//        return role;
-//    }
-//
-//    public void setRole(Role role) {
-//        this.role = role;
-//    }
+    public Role getRole() {
+        return role;
+    }
 
-
+    public void setRole(Role role) {
+        this.role = role;
+    }
 }

@@ -26,3 +26,5 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return new UserPrincipal(user);
     }
 }
+
+// Will update later
