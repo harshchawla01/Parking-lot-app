@@ -1,4 +1,4 @@
-package com.parking.parking_lot_application.controller;
+package com.parking.parkinglotapplication.sample;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;

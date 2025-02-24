@@ -1,8 +1,8 @@
-package com.parking.parking_lot_application.controller;
+package com.parking.parkinglotapplication.controller;
 
-import com.parking.parking_lot_application.entity.User;
-import com.parking.parking_lot_application.service.JwtService;
-import com.parking.parking_lot_application.service.UserService;
+import com.parking.parkinglotapplication.entity.User;
+import com.parking.parkinglotapplication.service.JwtService;
+import com.parking.parkinglotapplication.service.impl.UserServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/auth")
 public class UserController {
     @Autowired
-    private UserService userService;
+    private UserServiceImpl userService;
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {

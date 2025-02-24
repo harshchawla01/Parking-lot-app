@@ -1,6 +1,6 @@
 // just for the generation of token
 
-package com.parking.parking_lot_application.service;
+package com.parking.parkinglotapplication.service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -23,7 +23,7 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    private static final String SECRET = "TmV3U2VjcmV0S2V5Rm9ySldUU2lnbmluZ1B1cnBvc2VzMTIzNDU2Nzg=\r\n";
+//    private static final String SECRET = "TmV3U2VjcmV0S2V5Rm9ySldUU2lnbmluZ1B1cnBvc2VzMTIzNDU2Nzg=\r\n";
 
     private final String secretKey;
 

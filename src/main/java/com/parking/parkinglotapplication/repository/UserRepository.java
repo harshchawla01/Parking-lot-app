@@ -1,6 +1,6 @@
-package com.parking.parking_lot_application.repository;
+package com.parking.parkinglotapplication.repository;
 
-import com.parking.parking_lot_application.entity.User;
+import com.parking.parkinglotapplication.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

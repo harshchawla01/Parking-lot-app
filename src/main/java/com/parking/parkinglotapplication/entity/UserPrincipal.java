@@ -1,4 +1,4 @@
-package com.parking.parking_lot_application.entity;
+package com.parking.parkinglotapplication.entity;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
