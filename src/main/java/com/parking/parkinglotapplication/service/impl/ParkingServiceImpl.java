@@ -1,10 +1,16 @@
 package com.parking.parkinglotapplication.service.impl;
 
-import com.parking.parkinglotapplication.dto.ParkingAssignmentDTO;
-import com.parking.parkinglotapplication.dto.ParkingAvailabilityDTO;
-import com.parking.parkinglotapplication.dto.ParkingReleaseDTO;
-import com.parking.parkinglotapplication.dto.VehicleParkingDTO;
-import com.parking.parkinglotapplication.entity.*;
+import com.parking.parkinglotapplication.dto.AvailabilityResponse;
+import com.parking.parkinglotapplication.dto.ParkingAssignmentRequest;
+import com.parking.parkinglotapplication.dto.ParkingAssignmentResponse;
+import com.parking.parkinglotapplication.dto.ParkingUnlockRequest;
+import com.parking.parkinglotapplication.dto.ParkingUnlockResponse;
+import com.parking.parkinglotapplication.entity.Availability;
+import com.parking.parkinglotapplication.entity.ParkingHistory;
+import com.parking.parkinglotapplication.entity.ParkingLot;
+import com.parking.parkinglotapplication.entity.ParkingSpace;
+import com.parking.parkinglotapplication.entity.VehicleType;
+import com.parking.parkinglotapplication.exception.ParkingException;
 import com.parking.parkinglotapplication.repository.ParkingHistoryRepository;
 import com.parking.parkinglotapplication.repository.ParkingLotRepository;
 import com.parking.parkinglotapplication.repository.ParkingSpaceRepository;
@@ -17,8 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
 
 @Service
 public class ParkingServiceImpl implements ParkingService {
@@ -32,84 +41,82 @@ public class ParkingServiceImpl implements ParkingService {
     @Autowired
     private ParkingHistoryRepository parkingHistoryRepository;
 
-    // Base fee per hour
-    private static final int BASE_FEE_TW = 10; // $10 per hour for two-wheelers
-    private static final int BASE_FEE_FW = 20; // $20 per hour for four-wheelers
+    private static final int BASE_FEE_PER_HOUR = 20; // Base fee in Rs per hour
+    private static final int LATE_FEE_MULTIPLIER = 2; // Additional fee multiplier for late checkout
 
     @Override
-    public List<ParkingAvailabilityDTO> getAvailableSpaces() {
-        List<ParkingSpace> spaces = parkingSpaceRepository.findAll();
-        List<ParkingAvailabilityDTO> availabilityList = new ArrayList<>();
+    public Map<Integer, AvailabilityResponse> getAvailabilityByLevel() {
+        List<ParkingSpace> allParkingSpaces = parkingSpaceRepository.findAll();
+        Map<Integer, AvailabilityResponse> availabilityMap = new HashMap<>();
 
-        for (ParkingSpace space : spaces) {
+        for (ParkingSpace space : allParkingSpaces) {
+            int level = space.getLevel();
             int twAvailable = parkingLotRepository.countByLevelAndVehicleTypeAndAvailability(
-                    space.getLevel(), VehicleType.TW, Availability.AVAILABLE);
-
+                    level, VehicleType.TW, Availability.AVAILABLE);
             int fwAvailable = parkingLotRepository.countByLevelAndVehicleTypeAndAvailability(
-                    space.getLevel(), VehicleType.FW, Availability.AVAILABLE);
+                    level, VehicleType.FW, Availability.AVAILABLE);
 
-            ParkingAvailabilityDTO dto = new ParkingAvailabilityDTO();
-            dto.setLevel(space.getLevel());
-            dto.setTwoWheelerAvailable(twAvailable);
-            dto.setFourWheelerAvailable(fwAvailable);
-
-            availabilityList.add(dto);
+            availabilityMap.put(level, new AvailabilityResponse(twAvailable, fwAvailable));
         }
 
-        return availabilityList;
+        return availabilityMap;
     }
 
     @Override
-    public Map<Integer, Boolean> getPublicAvailability(VehicleType vehicleType) {
-        List<ParkingSpace> spaces = parkingSpaceRepository.findAll();
-        Map<Integer, Boolean> levelAvailability = new HashMap<>();
+    public Map<Integer, Boolean> getPublicAvailabilityByLevel(String vehicleType) {
+        List<ParkingSpace> allParkingSpaces = parkingSpaceRepository.findAll();
+        Map<Integer, Boolean> availabilityMap = new HashMap<>();
+        VehicleType type = VehicleType.valueOf(vehicleType);
 
-        for (ParkingSpace space : spaces) {
+        for (ParkingSpace space : allParkingSpaces) {
+            int level = space.getLevel();
             int available = parkingLotRepository.countByLevelAndVehicleTypeAndAvailability(
-                    space.getLevel(), vehicleType, Availability.AVAILABLE);
-
-            levelAvailability.put(space.getLevel(), available > 0);
+                    level, type, Availability.AVAILABLE);
+            availabilityMap.put(level, available > 0);
         }
 
-        return levelAvailability;
+        return availabilityMap;
     }
 
     @Override
     @Transactional
-    public ParkingAssignmentDTO assignParkingLot(VehicleParkingDTO parkingRequest) {
-        // Validate if vehicle is already parked
-        Optional<ParkingHistory> existingParking =
-                parkingHistoryRepository.findByVehicleNumberAndOutTimeIsNull(parkingRequest.getVehicleNumber());
+    public ParkingAssignmentResponse assignParkingSpace(ParkingAssignmentRequest request) {
+        // Validate input
+        if (request.getVehicleNumber() == null || request.getVehicleNumber().trim().isEmpty()) {
+            throw new ParkingException("Vehicle number cannot be empty");
+        }
 
+        // Check if vehicle is already parked
+        Optional<ParkingHistory> existingParking = parkingHistoryRepository.findByVehicleNumberAndOutTimeIsNull(request.getVehicleNumber());
         if (existingParking.isPresent()) {
-            throw new RuntimeException("Vehicle is already parked in the lot");
+            throw new ParkingException("Vehicle is already parked");
         }
 
         // Get parking space for the requested level
-        ParkingSpace parkingSpace = parkingSpaceRepository.findByLevel(parkingRequest.getLevel());
+        ParkingSpace parkingSpace = parkingSpaceRepository.findByLevel(request.getLevel());
         if (parkingSpace == null) {
-            throw new RuntimeException("Invalid parking level");
+            throw new ParkingException("Parking level not found");
         }
 
-        // Find available parking lots for the requested vehicle type
+        // Get all available parking lots for the requested vehicle type in the specified level
+        VehicleType vehicleType = VehicleType.valueOf(request.getVehicleType());
         List<ParkingLot> availableLots = parkingLotRepository.findByParkingSpaceAndVehicleTypeAndAvailability(
-                parkingSpace, parkingRequest.getVehicleType(), Availability.AVAILABLE);
+                parkingSpace, vehicleType, Availability.AVAILABLE);
 
         if (availableLots.isEmpty()) {
-            throw new RuntimeException("No parking lots available for the requested vehicle type at level "
-                    + parkingRequest.getLevel());
+            throw new ParkingException("No available parking lots for the requested vehicle type");
         }
 
-        // Select a random lot
+        // Randomly select a parking lot
         Random random = new Random();
         ParkingLot selectedLot = availableLots.get(random.nextInt(availableLots.size()));
 
-        // Update lot availability
+        // Update parking lot status to OCCUPIED
         selectedLot.setAvailability(Availability.OCCUPIED);
         parkingLotRepository.save(selectedLot);
 
-        // Update parking space availability count
-        if (parkingRequest.getVehicleType() == VehicleType.TW) {
+        // Update available slot count in parking space
+        if (vehicleType == VehicleType.TW) {
             parkingSpace.setTwa(parkingSpace.getTwa() - 1);
         } else {
             parkingSpace.setFwa(parkingSpace.getFwa() - 1);
@@ -117,60 +124,49 @@ public class ParkingServiceImpl implements ParkingService {
         parkingSpaceRepository.save(parkingSpace);
 
         // Create parking history entry
-        ParkingHistory history = new ParkingHistory();
-        history.setVehicleNumber(parkingRequest.getVehicleNumber());
-        history.setVehicleType(parkingRequest.getVehicleType());
-        history.setParkingLot(selectedLot);
-        history.setLevel(parkingRequest.getLevel());
-        history.setInTime(LocalDateTime.now());
+        ParkingHistory parkingHistory = new ParkingHistory();
+        parkingHistory.setVehicleNumber(request.getVehicleNumber());
+        parkingHistory.setVehicleType(vehicleType);
+        parkingHistory.setParkingLot(selectedLot);
+        parkingHistory.setLevel(request.getLevel());
+        parkingHistory.setInTime(LocalDateTime.now());
+        parkingHistoryRepository.save(parkingHistory);
 
-        parkingHistoryRepository.save(history);
-
-        // Get current user
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userEmail = authentication.getName();
-
-        // Create response DTO
-        ParkingAssignmentDTO response = new ParkingAssignmentDTO();
-        response.setVehicleNumber(parkingRequest.getVehicleNumber());
-        response.setVehicleType(parkingRequest.getVehicleType());
-        response.setLevel(parkingRequest.getLevel());
-        response.setLotNumber(selectedLot.getLotId());
-        response.setLockingTime(history.getInTime());
-        response.setUserId(userEmail);
-
-        return response;
+        // Create response
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        return new ParkingAssignmentResponse(
+                request.getVehicleType(),
+                request.getVehicleNumber(),
+                request.getLevel(),
+                selectedLot.getLotId(),
+                parkingHistory.getInTime(),
+                currentUser
+        );
     }
 
     @Override
     @Transactional
-    public ParkingReleaseDTO releaseParkingLot(String vehicleNumber, Long lotId) {
-        // Find active parking for the vehicle
-        ParkingHistory parkingHistory = parkingHistoryRepository.findByVehicleNumberAndOutTimeIsNull(vehicleNumber)
-                .orElseThrow(() -> new RuntimeException("No active parking found for vehicle " + vehicleNumber));
-
-        // Verify lot ID matches
-        if (!parkingHistory.getParkingLot().getLotId().equals(lotId)) {
-            throw new RuntimeException("Lot ID does not match the parked vehicle");
+    public ParkingUnlockResponse unlockParkingSpace(ParkingUnlockRequest request) {
+        // Validate input
+        if (request.getVehicleNumber() == null || request.getVehicleNumber().trim().isEmpty()) {
+            throw new ParkingException("Vehicle number cannot be empty");
         }
 
-        // Set exit time
-        LocalDateTime exitTime = LocalDateTime.now();
-        parkingHistory.setOutTime(exitTime);
+        // Find parking history for the vehicle
+        ParkingHistory parkingHistory = parkingHistoryRepository.findByVehicleNumberAndOutTimeIsNull(request.getVehicleNumber())
+                .orElseThrow(() -> new ParkingException("No active parking found for the vehicle"));
 
-        // Calculate fee
-        int fee = calculateFee(parkingHistory.getVehicleType(), parkingHistory.getInTime(), exitTime);
-        parkingHistory.setFee(fee);
+        // Verify lot matches if provided
+        if (request.getLotId() != null && !parkingHistory.getParkingLot().getLotId().equals(request.getLotId())) {
+            throw new ParkingException("Vehicle is not parked in the specified lot");
+        }
 
-        // Save updated history
-        parkingHistoryRepository.save(parkingHistory);
-
-        // Update lot availability
+        // Update parking lot status to AVAILABLE
         ParkingLot parkingLot = parkingHistory.getParkingLot();
         parkingLot.setAvailability(Availability.AVAILABLE);
         parkingLotRepository.save(parkingLot);
 
-        // Update parking space availability
+        // Update available slot count in parking space
         ParkingSpace parkingSpace = parkingLot.getParkingSpace();
         if (parkingHistory.getVehicleType() == VehicleType.TW) {
             parkingSpace.setTwa(parkingSpace.getTwa() + 1);
@@ -179,30 +175,31 @@ public class ParkingServiceImpl implements ParkingService {
         }
         parkingSpaceRepository.save(parkingSpace);
 
-        // Get current user
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userEmail = authentication.getName();
+        // Calculate fee
+        LocalDateTime outTime = LocalDateTime.now();
+        parkingHistory.setOutTime(outTime);
 
-        // Create response DTO
-        ParkingReleaseDTO response = new ParkingReleaseDTO();
-        response.setVehicleNumber(vehicleNumber);
-        response.setLotNumber(lotId);
-        response.setLockingTime(parkingHistory.getInTime());
-        response.setUnlockingTime(exitTime);
-        response.setFee(fee);
-        response.setUserId(userEmail);
+        long durationHours = Duration.between(parkingHistory.getInTime(), outTime).toHours();
+        if (durationHours < 1) durationHours = 1; // Minimum 1 hour charge
 
-        return response;
+        int fee = calculateFee(parkingHistory.getVehicleType(), durationHours);
+        parkingHistory.setFee(fee);
+        parkingHistoryRepository.save(parkingHistory);
+
+        // Create response
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        return new ParkingUnlockResponse(
+                parkingHistory.getVehicleNumber(),
+                parkingLot.getLotId(),
+                parkingHistory.getInTime(),
+                outTime,
+                fee,
+                currentUser
+        );
     }
 
-    private int calculateFee(VehicleType vehicleType, LocalDateTime inTime, LocalDateTime outTime) {
-        // Calculate duration in hours (rounded up)
-        long minutes = Duration.between(inTime, outTime).toMinutes();
-        int hours = (int) Math.ceil(minutes / 60.0);
-
-        // Calculate base fee
-        int baseFee = (vehicleType == VehicleType.TW) ? BASE_FEE_TW : BASE_FEE_FW;
-
-        return baseFee * hours;
+    private int calculateFee(VehicleType vehicleType, long hours) {
+        int baseHourlyRate = vehicleType == VehicleType.TW ? BASE_FEE_PER_HOUR : BASE_FEE_PER_HOUR * 2;
+        return (int) (baseHourlyRate * hours);
     }
 }

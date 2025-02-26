@@ -1,6 +1,5 @@
 package com.parking.parkinglotapplication.dto;
 
-import com.parking.parkinglotapplication.entity.VehicleType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,8 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class VehicleParkingDTO {
+public class ParkingAssignmentRequest {
+    private String vehicleType; // TW or FW
     private String vehicleNumber;
-    private VehicleType vehicleType;
     private int level;
 }

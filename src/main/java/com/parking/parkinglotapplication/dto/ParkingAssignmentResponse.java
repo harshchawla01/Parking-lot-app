@@ -9,11 +9,11 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ParkingReleaseDTO {
+public class ParkingAssignmentResponse {
+    private String vehicleType;
     private String vehicleNumber;
-    private Long lotNumber;
+    private int level;
+    private Long lotId;
     private LocalDateTime lockingTime;
-    private LocalDateTime unlockingTime;
-    private int fee;
     private String userId;
 }

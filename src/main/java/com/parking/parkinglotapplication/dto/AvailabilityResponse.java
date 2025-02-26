@@ -7,8 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ParkingAvailabilityDTO {
-    private int level;
+public class AvailabilityResponse {
     private int twoWheelerAvailable;
     private int fourWheelerAvailable;
 }
