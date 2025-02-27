@@ -16,7 +16,6 @@ import com.parking.parkinglotapplication.repository.ParkingLotRepository;
 import com.parking.parkinglotapplication.repository.ParkingSpaceRepository;
 import com.parking.parkinglotapplication.service.ParkingService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
