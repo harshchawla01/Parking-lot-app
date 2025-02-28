@@ -7,6 +7,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Autowired
@@ -25,42 +27,13 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
-
-//      M-1 (Anonymous inner class)
-//        Customizer<CsrfConfigurer<HttpSecurity>> custCsrf = new Customizer<CsrfConfigurer<HttpSecurity>>() {
-//            @Override
-//            public void customize(CsrfConfigurer<HttpSecurity> configurer) {
-//                configurer.disable();
-//            }
-//        };
-
-//        http.csrf(custCsrf);
-
-//      M-2 (lambda function)
-//        Customizer<CsrfConfigurer<HttpSecurity>> custCsrf = configurer -> configurer.disable();
-//
-//        http.csrf(custCsrf);
-
-//      M-3
-//        http.csrf(customizer -> customizer.disable());
-//        http.authorizeHttpRequests(request -> request.anyRequest().authenticated());
-////        http.formLogin(Customizer.withDefaults());
-////        disable form login when stateless bcz now you have to send the username password for every request and there is no session
-//        http.httpBasic(Customizer.withDefaults());
-//        http.sessionManagement(session -> session
-//                .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-//      M-4
         http
                 .authorizeHttpRequests(request -> request
-                        .requestMatchers("/auth/register","/auth/login").permitAll()
+                        .requestMatchers("/auth/register", "/auth/login").permitAll()
+                        .requestMatchers("/api/parking/availability/public/**").permitAll()
                         .anyRequest().authenticated()
                 )
-//                .oauth2Login(Customizer.withDefaults()) // enable if you want oAuth
                 .csrf(customizer -> customizer.disable())
-//                .authorizeHttpRequests(request -> request.anyRequest().authenticated())
-//                .httpBasic(Customizer.withDefaults())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -74,7 +47,7 @@ public class SecurityConfig {
     public AuthenticationProvider authProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder()); // This is solely for authentication
+        provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
 
@@ -87,23 +60,4 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
-
-//    @Bean
-//    public UserDetailsService userDetailsService() {
-//        UserDetails user = User
-//                .withDefaultPasswordEncoder()
-//                .username("Harsh")
-//                .password("Harsh")
-//                .roles("USER")
-//                .build();
-//
-//        UserDetails admin = User
-//                .withDefaultPasswordEncoder()
-//                .username("Diya")
-//                .password("Diya")
-//                .roles("ADMIN")
-//                .build();
-//
-//        return new InMemoryUserDetailsManager(user, admin);
-//    }
 }
