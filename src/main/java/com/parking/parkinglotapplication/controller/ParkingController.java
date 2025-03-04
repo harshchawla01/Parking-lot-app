@@ -25,41 +25,22 @@ public class ParkingController {
     @Autowired
     private ParkingService parkingService;
 
-    /**
-     * Admin endpoint to get detailed availability information
-     * @return Map of level to availability details
-     */
     @GetMapping("/availability/admin")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<Integer, AvailabilityResponse>> getAdminAvailability() {
         return ResponseEntity.ok(parkingService.getAvailabilityByLevel());
     }
 
-    /**
-     * Public endpoint to get simplified availability information
-     * @param vehicleType The type of vehicle (TW or FW)
-     * @return Map of level to boolean availability
-     */
     @GetMapping("/availability/public/{vehicleType}")
     public ResponseEntity<Map<Integer, Boolean>> getPublicAvailability(@PathVariable String vehicleType) {
         return ResponseEntity.ok(parkingService.getPublicAvailabilityByLevel(vehicleType));
     }
 
-    /**
-     * Assign a parking space
-     * @param request The assignment request with vehicle details
-     * @return The assignment response with lot details
-     */
     @PostMapping("/assign")
     public ResponseEntity<ParkingAssignmentResponse> assignParkingSpace(@RequestBody ParkingAssignmentRequest request) {
         return ResponseEntity.ok(parkingService.assignParkingSpace(request));
     }
 
-    /**
-     * Unlock a parking space
-     * @param request The unlock request with vehicle details
-     * @return The unlock response with fee details
-     */
     @PostMapping("/unlock")
     public ResponseEntity<ParkingUnlockResponse> unlockParkingSpace(@RequestBody ParkingUnlockRequest request) {
         return ResponseEntity.ok(parkingService.unlockParkingSpace(request));
